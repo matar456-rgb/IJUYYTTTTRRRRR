@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="حاسبة صندوق متقدمة مع ملء الشاشة">
+    <meta name="theme-color" content="#16a34a">
+
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="حاسبة الصندوق">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <link rel="manifest" href="manifest-cash.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%2316a34a' width='192' height='192'/><text x='50%' y='50%' font-size='100' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='central'>💰</text></svg>">
+
+    <title>حاسبة الصندوق</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        * {
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        input {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
+        html.fullscreen-mode {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        html.fullscreen-mode body {
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        html.fullscreen-mode .container {
+            max-width: 100vw !important;
+            height: 100vh;
+            max-h: 100vh !important;
+            border-radius: 0;
+        }
+
+        /* Welcome Overlay */
+        .welcome-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .welcome-overlay.hidden {
+            display: none;
+        }
+
+        .welcome-card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.4s ease-out;
+        }
+
+        .welcome-emoji {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+
+        .welcome-card h2 {
+            font-size: 28px;
+            color: #16a34a;
+            margin-bottom: 10px;
+        }
+
+        .welcome-card p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .welcome-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-fullscreen, .btn-normal-mode {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .btn-fullscreen {
+            background-color: #16a34a;
+            color: white;
+        }
+
+        .btn-fullscreen:hover {
+            background-color: #15803d;
+            transform: translateY(-2px);
+        }
+
+        .btn-normal-mode {
+            background-color: #f3f4f6;
+            color: #333;
+        }
+
+        .btn-normal-mode:hover {
+            background-color: #e5e7eb;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-200 min-h-screen flex justify-center items-center p-4 font-sans">
+
+    <!-- Welcome Overlay -->
+    <div class="welcome-overlay" id="welcomeOverlay">
+        <div class="welcome-card">
+            <div class="welcome-emoji">💰</div>
+            <h2>حاسبة الصندوق</h2>
+            <p>أدر عملياتك المالية بسهولة واحترافية</p>
+            <div class="welcome-buttons">
+                <button class="btn-fullscreen" id="btnStartFullscreen">ابدأ بملء الشاشة</button>
+                <button class="btn-normal-mode" id="btnStartNormal">الوضع العادي</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- حاوية التطبيق الرئيسية -->
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[90vh] max-h-[850px] container" id="appContainer">
+
+        <!-- الشريط العلوي (الهيدر) -->
+        <div class="bg-green-600 text-white p-5 flex justify-between items-center shadow-md z-10">
+            <h1 class="text-xl font-bold"><i class="fas fa-calculator ml-2"></i>حاسبة الصندوق</h1>
+            <div class="flex gap-2">
+                <button onclick="toggleFullscreen()" class="bg-green-500 hover:bg-green-400 p-2 rounded-full transition-colors w-10 h-10 flex justify-center items-center shadow" title="ملء الشاشة">
+                    <i class="fas fa-expand-alt" id="fsIcon"></i>
+                </button>
+                <button onclick="resetFields()" class="bg-green-500 hover:bg-green-400 p-2 rounded-full transition-colors w-10 h-10 flex justify-center items-center shadow" title="تفريغ الحقول">
+                    <i class="fas fa-redo-alt"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- قائمة الفئات النقدية -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50" id="denominations-list">
+            <!-- سيتم إضافة الفئات هنا عبر الجافاسكربت -->
+        </div>
+
+        <!-- قسم الإجماليات والخصم -->
+        <div class="bg-white p-5 border-t border-gray-200 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] z-10">
+
+            <!-- خانة الخصم -->
+            <div class="flex justify-between items-center bg-red-50 p-3 rounded-xl border border-red-200 mb-4 shadow-sm">
+                <span class="text-red-800 font-bold text-sm"><i class="fas fa-minus-circle ml-1"></i> الخصم:</span>
+                <div class="relative w-36">
+                    <input type="number" id="deductionAmount" class="w-full bg-white border border-red-300 rounded-lg px-3 py-2 text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-red-500 transition-all text-red-700" placeholder="0" min="0" oninput="calculateTotal()">
+                </div>
+            </div>
+
+            <!-- تفاصيل الإجمالي -->
+            <div class="space-y-2 px-1">
+                <div class="flex justify-between items-center text-gray-500 font-semibold">
+                    <span>المجموع قبل الخصم:</span>
+                    <span id="grossTotalDisplay" class="text-lg">0 ريال</span>
+                </div>
+
+                <div class="flex justify-between items-center pt-3 border-t border-gray-200">
+                    <span class="text-xl font-black text-gray-800">الصافي:</span>
+                    <span id="netTotalDisplay" class="text-3xl font-black text-green-600 transition-colors duration-300">0 ريال</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const denominations = [500, 200, 100, 50, 20, 10, 5, 1];
+        let isFullscreen = false;
+
+        // Elements
+        const welcomeOverlay = document.getElementById('welcomeOverlay');
+        const btnStartFullscreen = document.getElementById('btnStartFullscreen');
+        const btnStartNormal = document.getElementById('btnStartNormal');
+
+        // Initialize
+        function initApp() {
+            const listContainer = document.getElementById('denominations-list');
+
+            denominations.forEach(denom => {
+                const itemHTML = `
+                    <div class="flex justify-between items-center bg-white p-3 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-green-100 text-green-700 font-black text-lg w-14 h-10 rounded-xl flex items-center justify-center border border-green-200">
+                                ${denom}
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-gray-800 font-bold">فئة ${denom} ريال</span>
+                                <span class="text-sm text-green-600 font-semibold" id="subtotal-${denom}">0 ريال</span>
+                            </div>
+                        </div>
+                        <div class="w-24">
+                            <input type="number" id="input-${denom}" inputmode="numeric" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all text-gray-800" placeholder="0" min="0" oninput="calculateTotal()">
+                        </div>
+                    </div>
+                `;
+                listContainer.insertAdjacentHTML('beforeend', itemHTML);
+            });
+        }
+
+        function calculateTotal() {
+            let grossTotal = 0;
+
+            denominations.forEach(denom => {
+                const count = parseInt(document.getElementById(`input-${denom}`).value) || 0;
+                const subtotal = count * denom;
+                grossTotal += subtotal;
+
+                document.getElementById(`subtotal-${denom}`).innerText = subtotal > 0 ? `${subtotal.toLocaleString()} ريال` : '0 ريال';
+            });
+
+            const deduction = parseFloat(document.getElementById('deductionAmount').value) || 0;
+            const netTotal = grossTotal - deduction;
+
+            document.getElementById('grossTotalDisplay').innerText = grossTotal.toLocaleString() + ' ريال';
+
+            const netDisplay = document.getElementById('netTotalDisplay');
+            netDisplay.innerText = netTotal.toLocaleString() + ' ريال';
+
+            if (netTotal < 0) {
+                netDisplay.classList.remove('text-green-600');
+                netDisplay.classList.add('text-red-600');
+            } else {
+                netDisplay.classList.remove('text-red-600');
+                netDisplay.classList.add('text-green-600');
+            }
+        }
+
+        function resetFields() {
+            denominations.forEach(denom => {
+                document.getElementById(`input-${denom}`).value = '';
+                document.getElementById(`subtotal-${denom}`).innerText = `0 ريال`;
+            });
+            document.getElementById('deductionAmount').value = '';
+            calculateTotal();
+        }
+
+        function toggleFullscreen() {
+            const elem = document.documentElement;
+            const fsIcon = document.getElementById('fsIcon');
+
+            if (!isFullscreen) {
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen().catch(() => {});
+                } else if (elem.webkitRequestFullscreen) {
+                    elem.webkitRequestFullscreen();
+                } else if (elem.mozRequestFullScreen) {
+                    elem.mozRequestFullScreen();
+                } else if (elem.msRequestFullscreen) {
+                    elem.msRequestFullscreen();
+                }
+                isFullscreen = true;
+                fsIcon.className = 'fas fa-compress-alt';
+                document.documentElement.classList.add('fullscreen-mode');
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                isFullscreen = false;
+                fsIcon.className = 'fas fa-expand-alt';
+                document.documentElement.classList.remove('fullscreen-mode');
+            }
+        }
+
+        // Event listeners
+        btnStartFullscreen.addEventListener('click', () => {
+            welcomeOverlay.classList.add('hidden');
+            toggleFullscreen();
+            document.querySelector('input[id^="input-"]').focus();
+        });
+
+        btnStartNormal.addEventListener('click', () => {
+            welcomeOverlay.classList.add('hidden');
+            document.querySelector('input[id^="input-"]').focus();
+        });
+
+        // Listen for fullscreen change
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                isFullscreen = false;
+                document.getElementById('fsIcon').className = 'fas fa-expand-alt';
+                document.documentElement.classList.remove('fullscreen-mode');
+            }
+        });
+
+        // Initialize app
+        initApp();
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {
+                console.log('Service Worker registration failed');
+            });
+        }
+    </script>
+</body>
+</html>
